@@ -1,0 +1,12 @@
+{
+  "name": "panda_usb",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "clear && sudo nodemon index.js"
+  },
+  "dependencies": {
+    "usb": "^1.3.1"
+  }
+}

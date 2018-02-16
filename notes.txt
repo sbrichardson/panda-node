@@ -1,0 +1,13 @@
+node-usb https://github.com/tessel/node-usb#claim
+
+
+Panda() Python class
+https://github.com/commaai/panda/blob/master/python/__init__.py#L80
+
+
+https://github.com/commaai/panda
+
+
+When a panda powers up, by default it's in "SAFETY_NOOUTPUT" mode. While in no output mode, the buses are also forced to be silent. In order to send messages, you have to select a safety mode. Currently, setting safety modes is only supported over USB.
+
+Safety modes can also optionally support "controls_allowed", which allows or blocks a subset of messages based on a piece of state in the board.
