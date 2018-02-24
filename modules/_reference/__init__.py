@@ -220,12 +220,12 @@ class Panda(object):
       assert len(dat) <= 8
       if DEBUG:
         print("  W %x: %s" % (addr, dat.encode("hex")))
-      if addr >= 0x800:
+      if addr >= 0x800:                                           # 0x800 = 2048
         rir = (addr << 3) | transmit | extended
       else:
         rir = (addr << 21) | transmit
       snd = struct.pack("II", rir, len(dat) | (bus << 4)) + dat
-      snd = snd.ljust(0x10, b'\x00')
+      snd = snd.ljust(0x10, b'\x00')                              # 0x10 = 16
       snds.append(snd)
 
     while True:
@@ -258,18 +258,18 @@ class Panda(object):
     though it were drained.
 
     Args:
-      bus (int): can bus number to clear a tx queue, or 0xFFFF to clear the
+      bus (int): can bus number to clear a tx queue, or 0xFFFF (65535) to clear the
         global can rx queue.
 
     """
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf1, bus, 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf1, bus, 0, b'') # 0xf1 = 241
 
   # ******************* serial *******************
 
   def serial_read(self, port_number):
     ret = []
     while 1:
-      lret = bytes(self._handle.controlRead(Panda.REQUEST_IN, 0xe0, port_number, 0, 0x40))
+      lret = bytes(self._handle.controlRead(Panda.REQUEST_IN, 0xe0, port_number, 0, 0x40)) # 0xe0 = 224 | 64
       if len(lret) == 0:
         break
       ret.append(lret)
@@ -277,8 +277,8 @@ class Panda(object):
 
   def serial_write(self, port_number, ln):
     ret = 0
-    for i in range(0, len(ln), 0x20):
-      ret += self._handle.bulkWrite(2, struct.pack("B", port_number) + ln[i:i+0x20])
+    for i in range(0, len(ln), 0x20): # 0x20 = 32
+      ret += self._handle.bulkWrite(2, struct.pack("B", port_number) + ln[i:i+0x20]) # 0x20 = 32
     return ret
 
   def serial_clear(self, port_number):
@@ -289,19 +289,19 @@ class Panda(object):
       port_number (int): port number of the uart to clear.
 
     """
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf2, port_number, 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf2, port_number, 0, b'') # 0xf2 = 242
 
   # ******************* kline *******************
 
   # pulse low for wakeup
   def kline_wakeup(self):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf0, 0, 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xf0, 0, 0, b'') # 0xf0 = 240
 
   def kline_drain(self, bus=2):
     # drain buffer
     bret = bytearray()
     while True:
-      ret = self._handle.controlRead(Panda.REQUEST_IN, 0xe0, bus, 0, 0x40)
+      ret = self._handle.controlRead(Panda.REQUEST_IN, 0xe0, bus, 0, 0x40) # 0xe0 = 224 | 0x40 = 64
       if len(ret) == 0:
         break
       bret += ret
@@ -317,13 +317,13 @@ class Panda(object):
     def get_checksum(dat):
       result = 0
       result += sum(map(ord, dat)) if isinstance(b'dat', str) else sum(dat)
-      return struct.pack("B", result % 0x100)
+      return struct.pack("B", result % 0x100) # 0x100 = 256
 
     self.kline_drain(bus=bus)
     if checksum:
       x += get_checksum(x)
     for i in range(0, len(x), 0xf):
-      ts = x[i:i+0xf]
+      ts = x[i:i+0xf]                                   # 0xf = 15
       self._handle.bulkWrite(2, chr(bus).encode()+ts)
       echo = self.kline_ll_recv(len(ts), bus=bus)
       if echo != ts:
