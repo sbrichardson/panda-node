@@ -26,9 +26,22 @@ def build_st(target, mkfile="Makefile"):
   from panda import BASEDIR
   assert(os.system('cd %s && make -f %s clean && make -f %s %s >/dev/null' % (os.path.join(BASEDIR, "board"), mkfile, mkfile, target)) == 0)
 
+
+
+# Notes
+#
+# https://www.rapidtables.com/convert/number/hex-to-decimal.html
+#
+# Removed blocks of code and moved to end of file
+#
+
+# **********************
+# *** Canbus Parsing ***
+# **********************
+
 def parse_can_buffer(dat):
   ret = []
-  for j in range(0, len(dat), 0x10):
+  for j in range(0, len(dat), 0x10): # 0x10 = 16
     ddat = dat[j:j+0x10]
     f1, f2 = struct.unpack("II", ddat[0:8])
     extended = 4
@@ -42,61 +55,7 @@ def parse_can_buffer(dat):
     ret.append((address, f2>>16, dddat, (f2>>4)&0xFF))
   return ret
 
-class PandaWifiStreaming(object):
-  def __init__(self, ip="192.168.0.10", port=1338):
-    self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    self.sock.setblocking(0)
-    self.ip = ip
-    self.port = port
-    self.kick()
 
-  def kick(self):
-    # must be called at least every 5 seconds
-    self.sock.sendto("hello", (self.ip, self.port))
-
-  def can_recv(self):
-    ret = []
-    while True:
-      try:
-        dat, addr = self.sock.recvfrom(0x200*0x10)
-        if addr == (self.ip, self.port):
-          ret += parse_can_buffer(dat)
-      except socket.error as e:
-        if e.errno != 35 and e.errno != 11:
-          traceback.print_exc()
-        break
-    return ret
-
-# stupid tunneling of USB over wifi and SPI
-class WifiHandle(object):
-  def __init__(self, ip="192.168.0.10", port=1337):
-    self.sock = socket.create_connection((ip, port))
-
-  def __recv(self):
-    ret = self.sock.recv(0x44)
-    length = struct.unpack("I", ret[0:4])[0]
-    return ret[4:4+length]
-
-  def controlWrite(self, request_type, request, value, index, data, timeout=0):
-    # ignore data in reply, panda doesn't use it
-    return self.controlRead(request_type, request, value, index, 0, timeout)
-
-  def controlRead(self, request_type, request, value, index, length, timeout=0):
-    self.sock.send(struct.pack("HHBBHHH", 0, 0, request_type, request, value, index, length))
-    return self.__recv()
-
-  def bulkWrite(self, endpoint, data, timeout=0):
-    if len(data) > 0x10:
-      raise ValueError("Data must not be longer than 0x10")
-    self.sock.send(struct.pack("HH", endpoint, len(data))+data)
-    self.__recv()  # to /dev/null
-
-  def bulkRead(self, endpoint, length, timeout=0):
-    self.sock.send(struct.pack("HH", endpoint, 0))
-    return self.__recv()
-
-  def close(self):
-    self.sock.close()
 
 # *** normal mode ***
 
@@ -104,9 +63,9 @@ class Panda(object):
   SAFETY_NOOUTPUT = 0
   SAFETY_HONDA = 1
   SAFETY_TOYOTA = 2
-  SAFETY_TOYOTA_NOLIMITS = 0x1336
-  SAFETY_ALLOUTPUT = 0x1337
-  SAFETY_ELM327 = 0xE327
+  SAFETY_TOYOTA_NOLIMITS = 0x1336 # 0x1336 = 4918
+  SAFETY_ALLOUTPUT = 0x1337 # 0x1337 = 4919
+  SAFETY_ELM327 = 0xE327 # 0xE327 = 58151
 
   SERIAL_DEBUG = 0
   SERIAL_ESP = 1
@@ -145,7 +104,7 @@ class Panda(object):
         try:
           for device in context.getDeviceList(skip_on_error=True):
             #print(device)
-            if device.getVendorID() == 0xbbaa and device.getProductID() in [0xddcc, 0xddee]:
+            if device.getVendorID() == 0xbbaa and device.getProductID() in [0xddcc, 0xddee]: # 0xbbaa = 48042 | 0xddcc = 56780 | 0xddee = 56814
               try:
                 this_serial = device.getSerialNumber()
               except Exception:
@@ -153,8 +112,8 @@ class Panda(object):
               if self._serial is None or this_serial == self._serial:
                 self._serial = this_serial
                 print("opening device", self._serial, hex(device.getProductID()))
-                self.bootstub = device.getProductID() == 0xddee
-                self.legacy = (device.getbcdDevice() != 0x2300)
+                self.bootstub = device.getProductID() == 0xddee # 0xddee = 56814
+                self.legacy = (device.getbcdDevice() != 0x2300) # 0x2300 = 8960
                 self._handle = device.open()
                 if claim:
                   self._handle.claimInterface(0)
@@ -168,126 +127,6 @@ class Panda(object):
     assert(self._handle != None)
     print("connected")
 
-  def reset(self, enter_bootstub=False, enter_bootloader=False):
-    # reset
-    try:
-      if enter_bootloader:
-        self._handle.controlWrite(Panda.REQUEST_IN, 0xd1, 0, 0, b'')
-      else:
-        if enter_bootstub:
-          self._handle.controlWrite(Panda.REQUEST_IN, 0xd1, 1, 0, b'')
-        else:
-          self._handle.controlWrite(Panda.REQUEST_IN, 0xd8, 0, 0, b'')
-    except Exception:
-      pass
-    if not enter_bootloader:
-      self.close()
-      time.sleep(1.0)
-      success = False
-      # wait up to 15 seconds
-      for i in range(0, 15):
-        try:
-          self.connect()
-          success = True
-          break
-        except Exception:
-          print("reconnecting is taking %d seconds..." % (i+1))
-          try:
-            dfu = PandaDFU(PandaDFU.st_serial_to_dfu_serial(self._serial))
-            dfu.recover()
-          except Exception:
-            pass
-          time.sleep(1.0)
-      if not success:
-        raise Exception("reset failed")
-
-  def flash(self, fn=None, code=None):
-    if not self.bootstub:
-      self.reset(enter_bootstub=True)
-    assert(self.bootstub)
-
-    if fn is None and code is None:
-      if self.legacy:
-        fn = "obj/comma.bin"
-        print("building legacy st code")
-        build_st(fn, "Makefile.legacy")
-      else:
-        fn = "obj/panda.bin"
-        print("building panda st code")
-        build_st(fn)
-      fn = os.path.join(BASEDIR, "board", fn)
-
-    if code is None:
-      with open(fn) as f:
-        code = f.read()
-
-    # get version
-    print("flash: version is "+self.get_version())
-
-    # confirm flasher is present
-    fr = self._handle.controlRead(Panda.REQUEST_IN, 0xb0, 0, 0, 0xc)
-    assert fr[4:8] == "\xde\xad\xd0\x0d"
-
-    # unlock flash
-    print("flash: unlocking")
-    self._handle.controlWrite(Panda.REQUEST_IN, 0xb1, 0, 0, b'')
-
-    # erase sectors 1 and 2
-    print("flash: erasing")
-    self._handle.controlWrite(Panda.REQUEST_IN, 0xb2, 1, 0, b'')
-    self._handle.controlWrite(Panda.REQUEST_IN, 0xb2, 2, 0, b'')
-
-    # flash over EP2
-    STEP = 0x10
-    print("flash: flashing")
-    for i in range(0, len(code), STEP):
-      self._handle.bulkWrite(2, code[i:i+STEP])
-
-    # reset
-    print("flash: resetting")
-    self.reset()
-
-  def recover(self):
-    self.reset(enter_bootloader=True)
-    while len(PandaDFU.list()) == 0:
-      print("waiting for DFU...")
-      time.sleep(0.1)
-
-    dfu = PandaDFU(PandaDFU.st_serial_to_dfu_serial(self._serial))
-    dfu.recover()
-
-    # reflash after recover
-    self.connect(True, True)
-    self.flash()
-
-  @staticmethod
-  def flash_ota_st():
-    ret = os.system("cd %s && make clean && make ota" % (os.path.join(BASEDIR, "board")))
-    time.sleep(1)
-    return ret==0
-
-  @staticmethod
-  def flash_ota_wifi():
-    ret = os.system("cd %s && make clean && make ota" % (os.path.join(BASEDIR, "boardesp")))
-    time.sleep(1)
-    return ret==0
-
-  @staticmethod
-  def list():
-    context = usb1.USBContext()
-    ret = []
-    try:
-      for device in context.getDeviceList(skip_on_error=True):
-        if device.getVendorID() == 0xbbaa and device.getProductID() in [0xddcc, 0xddee]:
-          try:
-            ret.append(device.getSerialNumber())
-          except Exception:
-            continue
-    except Exception:
-      pass
-    # TODO: detect if this is real
-    #ret += ["WIFI"]
-    return ret
 
   def call_control_api(self, msg):
     self._handle.controlWrite(Panda.REQUEST_OUT, msg, 0, 0, b'')
@@ -295,7 +134,7 @@ class Panda(object):
   # ******************* health *******************
 
   def health(self):
-    dat = self._handle.controlRead(Panda.REQUEST_IN, 0xd2, 0, 0, 13)
+    dat = self._handle.controlRead(Panda.REQUEST_IN, 0xd2, 0, 0, 13) # 0xd2 = 210
     a = struct.unpack("IIBBBBB", dat)
     return {"voltage": a[0], "current": a[1],
             "started": a[2], "controls_allowed": a[3],
@@ -307,68 +146,69 @@ class Panda(object):
 
   def enter_bootloader(self):
     try:
-      self._handle.controlWrite(Panda.REQUEST_OUT, 0xd1, 0, 0, b'')
+      self._handle.controlWrite(Panda.REQUEST_OUT, 0xd1, 0, 0, b'') # 0xd1 = 209
     except Exception as e:
       print(e)
       pass
 
   def get_version(self):
-    return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40)
+    return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40) # 0xd6 = 214 | 0x40 = 64
 
   def is_grey(self):
-    ret = self._handle.controlRead(Panda.REQUEST_IN, 0xc1, 0, 0, 0x40)
+    ret = self._handle.controlRead(Panda.REQUEST_IN, 0xc1, 0, 0, 0x40) # 0xc1 = 193 | 0x40 = 64
     return ret == "\x01"
 
   def get_serial(self):
-    dat = self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 0, 0, 0x20)
-    hashsig, calc_hash = dat[0x1c:], hashlib.sha1(dat[0:0x1c]).digest()[0:4]
+    dat = self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 0, 0, 0x20) # 0xd0 = 208 | 0x20 = 32
+    hashsig, calc_hash = dat[0x1c:], hashlib.sha1(dat[0:0x1c]).digest()[0:4] # 0x1c = 28
     assert(hashsig == calc_hash)
-    return [dat[0:0x10], dat[0x10:0x10+10]]
+    return [dat[0:0x10], dat[0x10:0x10+10]] # 0x10 = 16
 
   def get_secret(self):
-    return self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 1, 0, 0x10)
+    return self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 1, 0, 0x10) # 0xd0 = 208
 
   # ******************* configuration *******************
 
   def set_usb_power(self, on):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe6, int(on), 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe6, int(on), 0, b'') # 0xe6 = 230
 
   def set_esp_power(self, on):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xd9, int(on), 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xd9, int(on), 0, b'') # 0xd9 = 217
 
   def esp_reset(self, bootmode=0):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xda, int(bootmode), 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xda, int(bootmode), 0, b'') # 0xda = 218
     time.sleep(0.2)
 
   def set_safety_mode(self, mode=SAFETY_NOOUTPUT):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xdc, mode, 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xdc, mode, 0, b'') # 0xdc = 220
 
   def set_can_forwarding(self, from_bus, to_bus):
     # TODO: This feature may not work correctly with saturated buses
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xdd, from_bus, to_bus, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xdd, from_bus, to_bus, b'') # 0xdd = 221
 
   def set_gmlan(self, bus=2):
     if bus is None:
-      self._handle.controlWrite(Panda.REQUEST_OUT, 0xdb, 0, 0, b'')
+      self._handle.controlWrite(Panda.REQUEST_OUT, 0xdb, 0, 0, b'') # 0xdb = 219
     elif bus in [Panda.GMLAN_CAN2, Panda.GMLAN_CAN3]:
-      self._handle.controlWrite(Panda.REQUEST_OUT, 0xdb, 1, bus, b'')
+      self._handle.controlWrite(Panda.REQUEST_OUT, 0xdb, 1, bus, b'') # 0xdb = 219
 
   def set_can_loopback(self, enable):
     # set can loopback mode for all buses
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe5, int(enable), 0, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe5, int(enable), 0, b'') # 0xe5 = 229
 
   def set_can_speed_kbps(self, bus, speed):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xde, bus, int(speed*10), b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xde, bus, int(speed*10), b'') # 0xde = 222
 
   def set_uart_baud(self, uart, rate):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe4, uart, rate/300, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe4, uart, rate/300, b'') # 0xe4 = 229
 
   def set_uart_parity(self, uart, parity):
     # parity, 0=off, 1=even, 2=odd
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe2, uart, parity, b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe2, uart, parity, b'') # 0xe2 = 226
 
   def set_uart_callback(self, uart, install):
-    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe3, uart, int(install), b'')
+    self._handle.controlWrite(Panda.REQUEST_OUT, 0xe3, uart, int(install), b'') # 0xe3 = 227
+
 
   # ******************* can *******************
 
@@ -407,7 +247,7 @@ class Panda(object):
     dat = bytearray()
     while True:
       try:
-        dat = self._handle.bulkRead(1, 0x10*256)
+        dat = self._handle.bulkRead(1, 0x10*256) # 0x10 is 16, (16*256=4096)
         break
       except (usb1.USBErrorIO, usb1.USBErrorOverflow):
         print("CAN: BAD RECV, RETRYING")
@@ -497,3 +337,203 @@ class Panda(object):
     msg += self.kline_ll_recv(ord(msg[1])-2, bus=bus)
     return msg
 
+
+
+
+
+
+
+
+
+
+# *** Removed Code Temporary for clarity ***
+
+#
+#
+# class PandaWifiStreaming(object):
+# def __init__(self, ip="192.168.0.10", port=1338):
+#   self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#   self.sock.setblocking(0)
+#   self.ip = ip
+#   self.port = port
+#   self.kick()
+#
+# def kick(self):
+#   # must be called at least every 5 seconds
+#   self.sock.sendto("hello", (self.ip, self.port))
+#
+# def can_recv(self):
+#   ret = []
+#   while True:
+#     try:
+#       dat, addr = self.sock.recvfrom(0x200*0x10)
+#       if addr == (self.ip, self.port):
+#         ret += parse_can_buffer(dat)
+#     except socket.error as e:
+#       if e.errno != 35 and e.errno != 11:
+#         traceback.print_exc()
+#       break
+#   return ret
+#
+# # stupid tunneling of USB over wifi and SPI
+# class WifiHandle(object):
+# def __init__(self, ip="192.168.0.10", port=1337):
+#   self.sock = socket.create_connection((ip, port))
+#
+# def __recv(self):
+#   ret = self.sock.recv(0x44)
+#   length = struct.unpack("I", ret[0:4])[0]
+#   return ret[4:4+length]
+#
+# def controlWrite(self, request_type, request, value, index, data, timeout=0):
+#   # ignore data in reply, panda doesn't use it
+#   return self.controlRead(request_type, request, value, index, 0, timeout)
+#
+# def controlRead(self, request_type, request, value, index, length, timeout=0):
+#   self.sock.send(struct.pack("HHBBHHH", 0, 0, request_type, request, value, index, length))
+#   return self.__recv()
+#
+# def bulkWrite(self, endpoint, data, timeout=0):
+#   if len(data) > 0x10:
+#     raise ValueError("Data must not be longer than 0x10")
+#   self.sock.send(struct.pack("HH", endpoint, len(data))+data)
+#   self.__recv()  # to /dev/null
+#
+# def bulkRead(self, endpoint, length, timeout=0):
+#   self.sock.send(struct.pack("HH", endpoint, 0))
+#   return self.__recv()
+#
+# def close(self):
+#   self.sock.close()
+#
+#
+#
+
+
+
+
+#
+#
+#
+# def reset(self, enter_bootstub=False, enter_bootloader=False):
+#   # reset
+#   try:
+#     if enter_bootloader:
+#       self._handle.controlWrite(Panda.REQUEST_IN, 0xd1, 0, 0, b'')
+#     else:
+#       if enter_bootstub:
+#         self._handle.controlWrite(Panda.REQUEST_IN, 0xd1, 1, 0, b'')
+#       else:
+#         self._handle.controlWrite(Panda.REQUEST_IN, 0xd8, 0, 0, b'')
+#   except Exception:
+#     pass
+#   if not enter_bootloader:
+#     self.close()
+#     time.sleep(1.0)
+#     success = False
+#     # wait up to 15 seconds
+#     for i in range(0, 15):
+#       try:
+#         self.connect()
+#         success = True
+#         break
+#       except Exception:
+#         print("reconnecting is taking %d seconds..." % (i+1))
+#         try:
+#           dfu = PandaDFU(PandaDFU.st_serial_to_dfu_serial(self._serial))
+#           dfu.recover()
+#         except Exception:
+#           pass
+#         time.sleep(1.0)
+#     if not success:
+#       raise Exception("reset failed")
+#
+#
+#
+# def flash(self, fn=None, code=None):
+#   if not self.bootstub:
+#     self.reset(enter_bootstub=True)
+#   assert(self.bootstub)
+#
+#   if fn is None and code is None:
+#     if self.legacy:
+#       fn = "obj/comma.bin"
+#       print("building legacy st code")
+#       build_st(fn, "Makefile.legacy")
+#     else:
+#       fn = "obj/panda.bin"
+#       print("building panda st code")
+#       build_st(fn)
+#     fn = os.path.join(BASEDIR, "board", fn)
+#
+#   if code is None:
+#     with open(fn) as f:
+#       code = f.read()
+#
+#   # get version
+#   print("flash: version is "+self.get_version())
+#
+#   # confirm flasher is present
+#   fr = self._handle.controlRead(Panda.REQUEST_IN, 0xb0, 0, 0, 0xc)
+#   assert fr[4:8] == "\xde\xad\xd0\x0d"
+#
+#   # unlock flash
+#   print("flash: unlocking")
+#   self._handle.controlWrite(Panda.REQUEST_IN, 0xb1, 0, 0, b'')
+#
+#   # erase sectors 1 and 2
+#   print("flash: erasing")
+#   self._handle.controlWrite(Panda.REQUEST_IN, 0xb2, 1, 0, b'')
+#   self._handle.controlWrite(Panda.REQUEST_IN, 0xb2, 2, 0, b'')
+#
+#   # flash over EP2
+#   STEP = 0x10
+#   print("flash: flashing")
+#   for i in range(0, len(code), STEP):
+#     self._handle.bulkWrite(2, code[i:i+STEP])
+#
+#   # reset
+#   print("flash: resetting")
+#   self.reset()
+#
+# def recover(self):
+#   self.reset(enter_bootloader=True)
+#   while len(PandaDFU.list()) == 0:
+#     print("waiting for DFU...")
+#     time.sleep(0.1)
+#
+#   dfu = PandaDFU(PandaDFU.st_serial_to_dfu_serial(self._serial))
+#   dfu.recover()
+#
+#   # reflash after recover
+#   self.connect(True, True)
+#   self.flash()
+#
+# @staticmethod
+# def flash_ota_st():
+#   ret = os.system("cd %s && make clean && make ota" % (os.path.join(BASEDIR, "board")))
+#   time.sleep(1)
+#   return ret==0
+#
+# @staticmethod
+# def flash_ota_wifi():
+#   ret = os.system("cd %s && make clean && make ota" % (os.path.join(BASEDIR, "boardesp")))
+#   time.sleep(1)
+#   return ret==0
+#
+# @staticmethod
+# def list():
+#   context = usb1.USBContext()
+#   ret = []
+#   try:
+#     for device in context.getDeviceList(skip_on_error=True):
+#       if device.getVendorID() == 0xbbaa and device.getProductID() in [0xddcc, 0xddee]:
+#         try:
+#           ret.append(device.getSerialNumber())
+#         except Exception:
+#           continue
+#   except Exception:
+#     pass
+#   # TODO: detect if this is real
+#   #ret += ["WIFI"]
+#   return ret
