@@ -100,9 +100,15 @@ def build_st(target, mkfile="Makefile"):
 #   def get_version(self):
 #     return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40) # 0xd6 = 214 | 0x40 = 64
 #
-# Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing), see
+# Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing), see:
+#
+#random example of usb lib in node.js:
+# https://github.com/tessel/node-usb/blob/256542a73918daa8702de5bc53df5837530f460e/usb.js#L79
+# https://github.com/jackalchen737/Intel-Edison/blob/524539951cdc1043399e5e0eb9cdcaeeb864f367/USB_Bomb_NodeJS/usb_bomb_js_keyboard.js
 # https://github.com/RogerHardiman/tenx_usb_missile_launcher/blob/e22415298ed5450a43358e30867f05ce6c141cfc/tenx_driver.js
-# for random example of usb lib in node.js
+# https://github.com/colincoombs/node-xscope/tree/develop
+# also: https://github.com/pathikrit/node-thunder-driver/blob/master/driver.js
+#
 #
 #
 #
@@ -176,8 +182,17 @@ def controlRead(
 def parse_can_buffer(dat):
   ret = []
   for j in range(0, len(dat), 0x10): # 0x10 = 16
-    ddat = dat[j:j+0x10]
-    f1, f2 = struct.unpack("II", ddat[0:8])
+    ddat = dat[j:j+0x10] # 0x10 = 16
+    # : is the delimiter of the slice syntax to 'slice out' sub-parts in sequences , [start:end]
+    # [1:5] is equivalent to "from 1 to 5" (5 not included)
+    # [1:] is equivalent to "1 to end"
+    # [len(a):] is equivalent to "from length of a to end"
+    # -------------------------
+    # struct.unpack - struct.unpack(format, string)
+    # Unpack the string (presumably packed by pack(fmt, ...)) according to the given format.
+    # The result is a tuple even if it contains exactly one item. The string must contain
+    # exactly the amount of data required by the format (len(string) must equal calcsize(fmt)).
+    f1, f2 = struct.unpack("II", ddat[0:8]) #
     extended = 4
     if f1 & extended:
       address = f1 >> 3
