@@ -100,7 +100,11 @@ def build_st(target, mkfile="Makefile"):
 #   def get_version(self):
 #     return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40) # 0xd6 = 214 | 0x40 = 64
 #
-# Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing):
+# Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing), see
+# https://github.com/RogerHardiman/tenx_usb_missile_launcher/blob/e22415298ed5450a43358e30867f05ce6c141cfc/tenx_driver.js
+# for random example of usb lib in node.js
+#
+#
 #
 #  _getVersion = (self) => {
 #
