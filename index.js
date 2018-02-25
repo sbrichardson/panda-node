@@ -9,6 +9,9 @@ const USB_DEBUG_LEVEL = 4
 // Set debug level for usb library
 usb.setDebugLevel(USB_DEBUG_LEVEL)
 
+console.info('\n\n\nusb object', usb)
+console.info('\n\n\n')
+
 // Get device connected usb devices
 let devices = usb.getDeviceList()
 

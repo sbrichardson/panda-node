@@ -104,7 +104,16 @@ def build_st(target, mkfile="Makefile"):
 #
 #  _getVersion = (self) => {
 #
-#    const bmRequestType = '' // todo - document enum options
+#    /**
+#     * bmRequestType - from libusb enum docs, stored on usb() object
+#     *
+#     * usb.LIBUSB_TRANSFER_TYPE_CONTROL = 0
+#     * usb.LIBUSB_TRANSFER_TYPE_ISOCHRONOUS = 1
+#     * usb.LIBUSB_TRANSFER_TYPE_BULK = 2
+#     * usb.LIBUSB_TRANSFER_TYPE_INTERRUPT = 3
+#     *
+#     */
+#    const bmRequestType = 3 // (verify 3) see above, enum one of [0, 1, 2, 3]
 #    const bRequest = 0xd6
 #    const wValue = 0
 #    const wIndex = 0
