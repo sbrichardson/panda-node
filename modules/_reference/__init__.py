@@ -84,6 +84,51 @@ def build_st(target, mkfile="Makefile"):
 #  - length (libusb: wLength - Number of bytes to transfer.)
 #
 #
+# -------------------
+# node-usb conversion usage
+# -------------------
+#
+# Full/Device usage
+# Device.controlTransfer(bmRequestType, bRequest, wValue, wIndex, data_or_length, callback(error, data))
+#
+# Simple/Endpoint specific usage
+# InEndpoint.transfer(length, callback(error, data))
+#
+#
+# Python version:
+#
+#   def get_version(self):
+#     return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40) # 0xd6 = 214 | 0x40 = 64
+#
+# Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing):
+#
+#  _getVersion = (self) => {
+#
+#    const bmRequestType = '' // todo - document enum options
+#    const bRequest = 0xd6
+#    const wValue = 0
+#    const wIndex = 0
+#    const length = 0x40
+#
+#    const callback = (error, data) => {
+#      /** TODO - es6 async/await instead of callback */
+#      error && console.info('_getVersion callback, error', error)
+#      console.info('_getVersion callback, data', data)
+#    }
+#
+#    return self._handle.controlTransfer(
+#      bmRequestType,
+#      bRequest,
+#      wValue,
+#      wIndex,
+#      length,
+#      callback /** TODO - es6 async/await */
+#    )
+#  }
+#
+#
+#
+#
 #
 # *** From libusb, controlRead here for usage example
 #
