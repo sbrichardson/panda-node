@@ -52,13 +52,13 @@ class PandaDFU(object):
 
   def status(self):
     while 1:
-      dat = str(self._handle.controlRead(0x21, DFU_GETSTATUS, 0, 0, 6))
+      dat = str(self._handle.controlRead(0x21, DFU_GETSTATUS, 0, 0, 6)) # 0x21 = 33
       if dat[1] == "\x00":
         break
 
   def clear_status(self):
     # Clear status
-    stat = str(self._handle.controlRead(0x21, DFU_GETSTATUS, 0, 0, 6))
+    stat = str(self._handle.controlRead(0x21, DFU_GETSTATUS, 0, 0, 6)) # 0x21 = 33
     if stat[4] == "\x0a":
       self._handle.controlRead(0x21, DFU_CLRSTATUS, 0, 0, 0)
     elif stat[4] == "\x09":
@@ -73,7 +73,7 @@ class PandaDFU(object):
   def program(self, address, dat, block_size=None):
     if block_size == None:
       block_size = len(dat)
-      
+
     # Set Address Pointer
     self._handle.controlWrite(0x21, DFU_DNLOAD, 0, 0, "\x21" + struct.pack("I", address))
     self.status()
@@ -119,4 +119,3 @@ class PandaDFU(object):
       stat = str(self._handle.controlRead(0x21, DFU_GETSTATUS, 0, 0, 6))
     except Exception:
       pass
-

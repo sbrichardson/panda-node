@@ -1,13 +1,14 @@
 # python library to interface with panda
 from __future__ import print_function
 import binascii
-import struct
+import struct # https://www.npmjs.com/package/struct
 import hashlib
 import socket
-import usb1
+import usb1 # https://github.com/vpelletier/python-libusb1 --> node.js https://github.com/tessel/node-usb
 import os
 import time
 import traceback
+
 from dfu import PandaDFU
 from esptool import ESPROM, CesantaFlasher
 from flash_release import flash_release
@@ -20,7 +21,6 @@ BASEDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../")
 
 DEBUG = os.getenv("PANDADEBUG") is not None
 
-# *** wifi mode ***
 
 def build_st(target, mkfile="Makefile"):
   from panda import BASEDIR
@@ -32,8 +32,84 @@ def build_st(target, mkfile="Makefile"):
 #
 # https://www.rapidtables.com/convert/number/hex-to-decimal.html
 #
-# Removed blocks of code and moved to end of file
+# - Removed blocks of code and moved to end of file
+# - Added comments near hexadecimal (0x) usage for clarity
 #
+# None ~ undefined
+#
+# "__init__" is a reserved method in python classes. It is known as a constructor in object oriented concepts.
+# This method called when an object is created from the class and it allow the class to initialize the attributes of a class.
+#
+# b'' usage - Bytes literals are always prefixed with 'b' or 'B'; they produce an instance of the bytes type instead of the str type.
+# They may only contain ASCII characters; bytes with a numeric value of 128 or greater must be expressed with escapes.
+#
+# int() usage - Return an integer object constructed from a number or string x, or return 0 if no arguments are given.
+# If x is a number, it can be a plain integer, a long integer, or a floating point number.
+#
+
+
+
+# ***************************
+# *** libusb1 controlRead ***
+# ***************************
+#
+# def controlRead(self, request_type, request, value, index, length, timeout=0):
+#
+# usage example:
+#   def get_version(self):
+#     return self._handle.controlRead(Panda.REQUEST_IN, 0xd6, 0, 0, 0x40) # 0xd6 = 214 | 0x40 = 64
+#
+# -------------------
+# Arguments from Example
+# -------------------
+#
+# self = Panda.REQUEST_IN
+# request_type = 0xd6 | 214
+# value = 0
+# index = 0
+# length = 0x40 | 64
+#
+# -------------------
+# Notes - libusb http://libusb.sourceforge.net/api-1.0/group__syncio.html#gadb11f7a761bd12fc77a07f4568d56f38
+# -------------------
+#
+# 1. value and index are typically 0
+#
+# 2. length is usually a multiple of 16, 32, 64 --> 0x10, 0x20, 0x40
+#
+# 3. self is either Panda.REQUEST_IN or REQUEST_OUT from usb1.ENDPOINT_IN
+#
+# 4. the only unique arguments are typically:
+#  - request_type (libusb: bRequest - the request field for the setup packet)
+#  - length (libusb: wLength - Number of bytes to transfer.)
+#
+#
+#
+# *** From libusb, controlRead here for usage example
+#
+def controlRead(
+    self, request_type, request, value, index, length, timeout=0):
+    """
+    Synchronous control read.
+    timeout: in milliseconds, how long to wait for data. Set to 0 to
+      disable.
+    See controlWrite for other parameters description.
+    To avoid memory copies, use an object implementing the writeable buffer
+    interface (ex: bytearray) for the "data" parameter.
+    Returns received data.
+    """
+
+    # pylint: disable=undefined-variable
+    request_type = (request_type & ~ENDPOINT_DIR_MASK) | ENDPOINT_IN
+
+    # pylint: enable=undefined-variable
+    data, data_buffer = create_binary_buffer(length)
+
+    transferred = self._controlTransfer(
+        request_type, request, value, index, data, length, timeout,
+    )
+
+    return data_buffer[:transferred]
 
 # **********************
 # *** Canbus Parsing ***
@@ -60,6 +136,7 @@ def parse_can_buffer(dat):
 # *** normal mode ***
 
 class Panda(object):
+
   SAFETY_NOOUTPUT = 0
   SAFETY_HONDA = 1
   SAFETY_TOYOTA = 2
@@ -86,6 +163,7 @@ class Panda(object):
   def close(self):
     self._handle.close()
     self._handle = None
+
 
   def connect(self, claim=True, wait=False):
     if self._handle != None:
@@ -165,7 +243,7 @@ class Panda(object):
     return [dat[0:0x10], dat[0x10:0x10+10]] # 0x10 = 16
 
   def get_secret(self):
-    return self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 1, 0, 0x10) # 0xd0 = 208
+    return self._handle.controlRead(Panda.REQUEST_IN, 0xd0, 1, 0, 0x10) # 0xd0 = 208 | 0x10 = 16
 
   # ******************* configuration *******************
 
