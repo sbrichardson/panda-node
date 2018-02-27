@@ -102,14 +102,13 @@ def build_st(target, mkfile="Makefile"):
 #
 # Node.js version (within an ES6 class, dev version, in progress, will reduce complexity after testing), see:
 #
-#random example of usb lib in node.js:
+# Random examples of usb lib in node.js:
+# https://lukeisadog.wordpress.com/2014/04/19/reverse-engineering-a-client-usb-driver-with-nodejs/
 # https://github.com/tessel/node-usb/blob/256542a73918daa8702de5bc53df5837530f460e/usb.js#L79
 # https://github.com/jackalchen737/Intel-Edison/blob/524539951cdc1043399e5e0eb9cdcaeeb864f367/USB_Bomb_NodeJS/usb_bomb_js_keyboard.js
 # https://github.com/RogerHardiman/tenx_usb_missile_launcher/blob/e22415298ed5450a43358e30867f05ce6c141cfc/tenx_driver.js
 # https://github.com/colincoombs/node-xscope/tree/develop
-# also: https://github.com/pathikrit/node-thunder-driver/blob/master/driver.js
-#
-#
+# Also: https://github.com/pathikrit/node-thunder-driver/blob/master/driver.js
 #
 #
 #  _getVersion = (self) => {
@@ -174,6 +173,8 @@ def controlRead(
     )
 
     return data_buffer[:transferred]
+
+
 
 # **********************
 # *** Canbus Parsing ***
