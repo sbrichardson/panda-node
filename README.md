@@ -7,7 +7,7 @@ Most of the comma.ai libraries are written in Python, I'm more of a JavaScript D
 
 
 ## Usage Notes
-I've tested working on Ubuntu 16.04.3 in Parallels on an iMac Pro with High Sierra. I was receiving an error when attempting to use the usb library on the mac directly. I've tested the white & grey models successfully.
+I've tested working on Ubuntu 16.04.3 in Parallels on an iMac Pro with High Sierra, and on the iMac within High Sierra directly. I've tested the white & grey models successfully.
 
 
 ## Development Notes
