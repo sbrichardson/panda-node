@@ -11,7 +11,7 @@ I've tested working on Ubuntu 16.04.3 in Parallels on an iMac Pro with High Sier
 
 
 ### Development Notes
-I'm new to USB development so there are extra comments scattered around in the code currently. As this repo develops it will become more structured and usable. I'll list in on npm then. Currently I'm reverse engineering the Python code within the official [panda repo](https://github.com/commaai/panda) from comma.ai. The main   [`Panda`](https://github.com/commaai/panda/blob/master/python/__init__.py) class (linked to comma.ai's panda code) has a lot of the functionality. 
+I'm new to USB development so there are extra comments scattered around in the code currently. As this repo develops it will become more structured and usable. I'll list in on npm then. Currently I'm reverse engineering the Python code within the official [panda repo](https://github.com/commaai/panda) from comma.ai. [This class](https://github.com/commaai/panda/blob/master/python/__init__.py) from comma.ai's code contains a lot of functionality.
 
 ### Installation
 
